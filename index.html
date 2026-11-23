@@ -450,6 +450,11 @@ addEventListener('resize',()=>{ setLbl(); dirty=true;
 });
 addEventListener('hashchange',()=>{ const h=location.hash.slice(1); const i=D.findIndex(d=>slug(d.n)===h); if(i>=0&&i!==selected){ ensureVisible(i); select(i,true); } });
 addEventListener('keydown',e=>{ if(e.key==='Escape') closeCard(); });
+if(/[?&]demo/.test(location.search)) window.__demo={
+  ready:()=>D.length>0, find:n=>D.findIndex(d=>d.n===n),
+  select:i=>{ ensureVisible(i); select(i,true); }, home:()=>flyHome(),
+  cam:(x,z,r,pol,az,ms)=>flyCam(new THREE.Vector3(x,0,z),r,pol,az,ms), close:closeCard
+};
 })();
 </script>
 </body>
