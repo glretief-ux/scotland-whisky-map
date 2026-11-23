@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scotland Whisky Distillery Map – 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a141b; --panel:rgba(14,26,34,.88); --line:rgba(255,255,255,.12);
+  --text:#eef2f4; --muted:#9fb0ba; --amber:#f2b134;
+  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent}
+#stage{position:fixed;inset:0}
+canvas{display:block;touch-action:none;outline:none}
+#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;white-space:nowrap;font-size:11px;font-weight:600;letter-spacing:.01em;color:#fff;text-shadow:0 0 3px #000,0 0 6px #000,0 1px 2px #000;will-change:transform}
+.lbl.sel{color:var(--amber);font-size:13px}
+#ui{position:fixed;left:0;top:0;right:0;padding:calc(var(--sat) + 10px) calc(var(--sar) + 12px) 0 calc(var(--sal) + 12px);pointer-events:none;display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+#head{pointer-events:auto;max-width:440px;width:100%;min-width:0}
+h1{font-family:'Playfair Display',Georgia,serif;font-size:21px;line-height:1.15;margin:0 0 2px;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+.sub{font-size:12px;color:var(--muted);margin-bottom:8px;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.sub b{color:var(--amber);font-weight:600}
+#search{position:relative}
+#q{width:100%;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:500 14px Inter,sans-serif;padding:0 12px 0 36px;outline:none;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#q:focus{border-color:var(--amber)}
+#search svg{position:absolute;z-index:2;pointer-events:none;left:11px;top:11px;width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:2}
+#results{position:absolute;left:0;right:0;top:44px;background:rgba(10,20,27,.97);border:1px solid var(--line);border-radius:12px;max-height:42vh;overflow:auto;display:none;z-index:5}
+#results button{display:flex;width:100%;gap:10px;align-items:center;text-align:left;background:none;border:0;color:var(--text);padding:10px 12px;font:500 14px Inter,sans-serif;cursor:pointer;border-bottom:1px solid var(--line)}
+#results button:last-child{border-bottom:0}
+#results button:hover,#results button:focus{background:rgba(255,255,255,.07);outline:none}
+#results small{color:var(--muted);margin-left:auto;font-weight:400;font-size:12px}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
+#chips{display:flex;gap:6px;margin-top:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+#chips::-webkit-scrollbar{display:none}
+.chip{flex:none;display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:15px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:500 12px Inter,sans-serif;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.chip.off{opacity:.42}
+.chip i{font-style:normal;color:var(--muted)}
+#tools{pointer-events:auto;display:flex;flex-direction:column;gap:8px;align-items:center}
+.tool{width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);display:grid;place-items:center;cursor:pointer;font:600 12px Inter,sans-serif;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.tool svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tool:active{background:rgba(255,255,255,.14)}
+#compass .needle{transform-origin:12px 12px}
+#card{position:fixed;z-index:6;background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:var(--text);transition:transform .28s ease,opacity .28s ease;pointer-events:auto}
+@media (min-width:700px){
+  #chips{flex-wrap:wrap;overflow:visible}
+  #card{right:calc(var(--sar) + 12px);top:calc(var(--sat) + 10px + 240px);width:360px;max-height:calc(100% - 270px - var(--sat) - var(--sab));border-radius:16px;transform:translateX(30px);opacity:0;visibility:hidden}
+  #card.open{transform:none;opacity:1;visibility:visible}
+  #tools{margin-left:auto}
+}
+@media (max-width:699px){
+  #card{left:0;right:0;bottom:0;max-height:48vh;border-radius:18px 18px 0 0;padding-bottom:var(--sab);transform:translateY(105%);opacity:1;visibility:hidden;border-bottom:0}
+  #card.open{transform:none;visibility:visible}
+  h1{font-size:18px}
+}
+.cardin{padding:16px 18px 18px;overflow:auto;max-height:inherit}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#cname{font-family:'Playfair Display',Georgia,serif;font-size:25px;line-height:1.15;margin:6px 0 4px;padding-right:34px}
+.meta{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-bottom:10px}
+.meta b{color:var(--text);font-weight:600}
+#chist{font-size:14.5px;line-height:1.55;color:#dfe6ea;margin:0}
+#cnote{font-size:12px;color:var(--muted);margin-top:10px;display:none}
+#cclose{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:18px;line-height:1}
+.actions{display:flex;gap:8px;margin-top:14px}
+.btn{height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.07);color:var(--text);font:500 13px Inter,sans-serif;cursor:pointer}
+.btn:active{background:rgba(255,255,255,.16)}
+#chooser{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sab) + 16px);width:min(92vw,360px);background:rgba(10,20,27,.97);border:1px solid var(--line);border-radius:14px;z-index:7;display:none;overflow:hidden}
+#chooser p{margin:0;padding:10px 14px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line)}
+#chooser button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;color:var(--text);padding:11px 14px;font:500 14px Inter,sans-serif;cursor:pointer;border-bottom:1px solid var(--line)}
+#chooser button:last-child{border-bottom:0}
+#tip{position:fixed;pointer-events:none;background:rgba(10,20,27,.95);border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:600;display:none;z-index:8;white-space:nowrap}
+#hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sab) + 14px);font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--line);padding:7px 12px;border-radius:20px;pointer-events:none;transition:opacity .6s;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+#loading{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:20;color:var(--muted);font-size:14px;transition:opacity .5s}
+#err{display:none;position:fixed;inset:0;place-items:center;text-align:center;padding:30px;z-index:21;background:var(--bg)}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="labels"></div>
+
+<div id="ui">
+  <div id="head">
+    <h1>Scotland's Whisky Distilleries</h1>
+    <div class="sub"><b id="cnt">146</b> distilleries · Whisky Lovers Society · tap a pin for its story</div>
+    <div id="search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="q" type="search" placeholder="Search a distillery or place…" autocomplete="off" aria-label="Search distilleries">
+      <div id="results" role="listbox"></div>
+    </div>
+    <div id="chips" aria-label="Filter by region"></div>
+  </div>
+  <div id="tools">
+    <button class="tool" id="compass" aria-label="Face north"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><g class="needle" id="needle"><path d="M12 4.5l3 7.5h-6z" fill="#f2b134" stroke="none"/><path d="M12 19.5l-3-7.5h6z" fill="currentColor" stroke="none" opacity=".45"/></g></svg></button>
+    <button class="tool" id="reset" aria-label="Reset view"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button>
+    <button class="tool" id="tilt" aria-label="Switch between 2D and 3D view">2D</button>
+    <button class="tool" id="rand" aria-label="Surprise me"><svg viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></button>
+  </div>
+</div>
+
+<div id="card" role="dialog" aria-live="polite">
+  <button id="cclose" aria-label="Close">×</button>
+  <div class="cardin">
+    <div class="badge"><span class="dot" id="cdot"></span><span id="creg"></span></div>
+    <h2 id="cname"></h2>
+    <div class="meta"><span>📍 <b id="cloc"></b></span><span id="cyearw">Est. <b id="cyear"></b></span></div>
+    <p id="chist"></p>
+    <div id="cnote">Pin position is approximate.</div>
+    <div class="actions"><button class="btn" id="cfly">Zoom in closer</button></div>
+  </div>
+</div>
+<div id="chooser"><p>Several distilleries here – pick one</p><div id="chlist"></div></div>
+<div id="tip"></div>
+<div id="hint">Drag to rotate · pinch or scroll to zoom · tap a pin</div>
+<div id="loading">Loading the map…</div>
+<div id="err"><div><h2 style="font-family:'Playfair Display',serif">The 3D map couldn't start</h2><p style="color:#9fb0ba">Your browser or device may not support WebGL. Try another browser.</p></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+<script>
+(function(){
+'use strict';
+const REG={Speyside:'#f2b134',Highland:'#4fb98a',Islay:'#e5584a',Islands:'#4aa3df',Lowland:'#a98be8',Campbeltown:'#ee6fae',Grain:'#d3dbe1'};
+const ICONIC=['Glenfiddich','Macallan','Glenlivet','Laphroaig','Talisker','Highland Park','Springbank','Lagavulin','Ardbeg','Balvenie','Glenmorangie','Bowmore','Oban','Dalmore','Aberlour','Bruichladdich','Caol Ila','Glenfarclas','Tobermory','Jura','Scapa','Auchentoshan','Glenkinchie','Rosebank','Bunnahabhain','Kilchoman','Glen Grant','Cardhu','Dalwhinnie','Edradour','Glenturret','Tomatin','Strathisla','Glen Scotia','Port Ellen','Glengoyne','Clynelish','Pulteney','Cragganmore','Ben Nevis','Torabhaig','Raasay','Harris','Lochranza','Holyrood','Clydeside','Lindores Abbey','Kingsbarns','Bladnoch','Annandale'];
+const DEPTH=6;
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=id=>document.getElementById(id);
+const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+let renderer;
+try{
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
+}catch(e){ $('loading').style.display='none'; $('err').style.display='grid'; return; }
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.setClearColor(0x0a141b,1);
+$('stage').appendChild(renderer.domElement);
+const canvas=renderer.domElement;
+
+const scene=new THREE.Scene();
+scene.fog=new THREE.Fog(0x0a141b,1400,3200);
+const camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,1,6000);
+const controls=new THREE.OrbitControls(camera,canvas);
+controls.enableDamping=true; controls.dampingFactor=.09;
+controls.minDistance=4; controls.maxDistance=1900;
+controls.maxPolarAngle=Math.PI*.47; controls.screenSpacePanning=false;
+controls.rotateSpeed=.7; controls.zoomSpeed=1.1; controls.panSpeed=.9;
+
+scene.add(new THREE.HemisphereLight(0xcfe3ff,0x1d2228,.95));
+const sun=new THREE.DirectionalLight(0xffe0b0,.85); sun.position.set(-300,500,400); scene.add(sun);
+
+// sea
+(function(){
+  const c=document.createElement('canvas'); c.width=c.height=512; const g=c.getContext('2d');
+  const gr=g.createRadialGradient(256,256,10,256,256,256);
+  gr.addColorStop(0,'#1c3a4a'); gr.addColorStop(.55,'#102532'); gr.addColorStop(1,'#0a141b');
+  g.fillStyle=gr; g.fillRect(0,0,512,512);
+  const t=new THREE.CanvasTexture(c);
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(5200,5200),new THREE.MeshBasicMaterial({map:t,fog:false}));
+  m.rotation.x=-Math.PI/2; m.position.y=-.4; scene.add(m);
+  const grid=new THREE.GridHelper(2600,52,0x2b5468,0x173544); grid.position.y=-.3;
+  grid.material.transparent=true; grid.material.opacity=.45; scene.add(grid);
+})();
+
+let D=[], pins=[], labels=[], order=[];
+const active={ regions:new Set(Object.keys(REG).filter(k=>k!=='Grain')), grain:true };
+let selected=-1;
+
+Promise.all([fetch('scotland.json').then(r=>r.json()),fetch('distilleries.json').then(r=>r.json())]).then(([geo,data])=>{
+  D=data; buildLand(geo); buildPins(); buildUI(); start();
+}).catch(e=>{ console.error(e); $('loading').textContent='Could not load the map data.'; });
+
+function buildLand(geo){
+  const parts=[]; let ai=0;
+  const topBase=new THREE.Color('#58573f'), side=new THREE.Color('#2f2e22');
+  geo.areas.forEach(a=>{
+    const j=((ai*37)%11-5)/100; ai++;
+    const top=topBase.clone().offsetHSL(0,0,j), sidec=side.clone();
+    a.polys.forEach(poly=>{
+      const shape=new THREE.Shape(poly[0].map(p=>new THREE.Vector2(p[0],-p[1])));
+      for(let h=1;h<poly.length;h++) shape.holes.push(new THREE.Path(poly[h].map(p=>new THREE.Vector2(p[0],-p[1]))));
+      const g=new THREE.ExtrudeGeometry(shape,{depth:DEPTH,bevelEnabled:false,curveSegments:1});
+      g.rotateX(-Math.PI/2); g.clearGroups();
+      const n=g.attributes.normal, cnt=n.count, col=new Float32Array(cnt*3);
+      for(let i=0;i<cnt;i++){ const c=n.getY(i)>.5?top:sidec; col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b; }
+      g.setAttribute('color',new THREE.BufferAttribute(col,3));
+      if(g.attributes.uv) g.deleteAttribute('uv');
+      parts.push(g);
+    });
+  });
+  const merged=THREE.BufferGeometryUtils.mergeBufferGeometries(parts,false);
+  scene.add(new THREE.Mesh(merged,new THREE.MeshLambertMaterial({vertexColors:true})));
+  // borders
+  const bp=[];
+  geo.areas.forEach(a=>a.polys.forEach(poly=>poly.forEach(r=>{
+    for(let i=0;i<r.length;i++){ const p=r[i],q=r[(i+1)%r.length]; bp.push(p[0],DEPTH+.03,p[1],q[0],DEPTH+.03,q[1]); }
+  })));
+  const bg=new THREE.BufferGeometry(); bg.setAttribute('position',new THREE.Float32BufferAttribute(bp,3));
+  scene.add(new THREE.LineSegments(bg,new THREE.LineBasicMaterial({color:0x2a281c,transparent:true,opacity:.75})));
+  const cp=[];
+  geo.coast.forEach(r=>{ for(let i=0;i<r.length-1;i++){ cp.push(r[i][0],DEPTH+.05,r[i][1],r[i+1][0],DEPTH+.05,r[i+1][1]); }});
+  const cg=new THREE.BufferGeometry(); cg.setAttribute('position',new THREE.Float32BufferAttribute(cp,3));
+  scene.add(new THREE.LineSegments(cg,new THREE.LineBasicMaterial({color:0xf0c27a,transparent:true,opacity:.9})));
+}
+
+function buildPins(){
+  const cone=new THREE.ConeGeometry(.28,1.3,12); cone.rotateX(Math.PI); cone.translate(0,.65,0);
+  const head=new THREE.SphereGeometry(.45,18,14); head.translate(0,1.65,0);
+  const dia=new THREE.OctahedronGeometry(.62); dia.translate(0,1.65,0);
+  const ring=new THREE.RingGeometry(.9,1.15,36); ring.rotateX(-Math.PI/2); ring.translate(0,.06,0);
+  const mats={};
+  const mat=k=>mats[k]||(mats[k]=new THREE.MeshStandardMaterial({color:REG[k],emissive:REG[k],emissiveIntensity:.28,roughness:.38,metalness:.1}));
+  D.forEach((d,i)=>{
+    const g=new THREE.Group(); const m=mat(d.k==='g'?'Grain':d.r);
+    g.add(new THREE.Mesh(cone,m)); g.add(new THREE.Mesh(d.k==='g'?dia:head,m));
+    const rm=new THREE.Mesh(ring,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.9,side:THREE.DoubleSide,depthWrite:false}));
+    rm.visible=false; g.add(rm); g.userData.ring=rm;
+    g.position.set(d.x,DEPTH,d.z); scene.add(g); pins.push(g);
+  });
+  // labels
+  const lc=$('labels'), cx=document.createElement('canvas').getContext('2d'); cx.font='600 11px Inter, sans-serif';
+  D.forEach((d,i)=>{
+    const el=document.createElement('div'); el.className='lbl'; el.textContent=d.n; el.style.display='none'; lc.appendChild(el);
+    d._w=cx.measureText(d.n).width+8; labels.push(el);
+  });
+  order=D.map((_,i)=>i).sort((a,b)=>{
+    const pa=ICONIC.indexOf(D[a].n), pb=ICONIC.indexOf(D[b].n);
+    const sa=pa<0?999:pa, sb=pb<0?999:pb; if(sa!==sb) return sa-sb;
+    return (D[a].y||2100)-(D[b].y||2100);
+  });
+}
+
+function visible(i){ const d=D[i]; return d.k==='g'?active.grain:active.regions.has(d.r); }
+
+function buildUI(){
+  $('cnt').textContent=D.length;
+  const chips=$('chips'); const counts={};
+  D.forEach(d=>{ const k=d.k==='g'?'Grain':d.r; counts[k]=(counts[k]||0)+1; });
+  Object.keys(REG).forEach(k=>{
+    if(!counts[k]) return;
+    const b=document.createElement('button'); b.className='chip'; b.dataset.k=k;
+    b.innerHTML='<span class="dot" style="background:'+REG[k]+'"></span>'+(k==='Grain'?'Grain distilleries':k)+' <i>'+counts[k]+'</i>';
+    b.onclick=()=>{
+      if(k==='Grain'){ active.grain=!active.grain; b.classList.toggle('off',!active.grain); }
+      else { if(active.regions.has(k)) active.regions.delete(k); else active.regions.add(k); b.classList.toggle('off',!active.regions.has(k)); }
+      if(selected>=0&&!visible(selected)) closeCard();
+      applyVisibility(); dirty=true;
+    };
+    chips.appendChild(b);
+  });
+  // search
+  const q=$('q'), res=$('results');
+  const run=()=>{
+    const v=q.value.trim().toLowerCase(); res.innerHTML='';
+    if(!v){ res.style.display='none'; return; }
+    const hits=D.map((d,i)=>({d,i})).filter(o=>(o.d.n+' '+o.d.l+' '+o.d.r).toLowerCase().includes(v))
+      .sort((a,b)=>(a.d.n.toLowerCase().startsWith(v)?0:1)-(b.d.n.toLowerCase().startsWith(v)?0:1)).slice(0,8);
+    if(!hits.length){ res.innerHTML='<button disabled>No match</button>'; res.style.display='block'; return; }
+    hits.forEach(o=>{
+      const b=document.createElement('button');
+      b.innerHTML='<span class="dot" style="background:'+REG[o.d.k==='g'?'Grain':o.d.r]+'"></span>';
+      b.appendChild(document.createTextNode(o.d.n));
+      const s=document.createElement('small'); s.textContent=o.d.l; b.appendChild(s);
+      b.onclick=()=>{ q.value=''; res.style.display='none'; q.blur(); ensureVisible(o.i); select(o.i,true); };
+      res.appendChild(b);
+    });
+    res.style.display='block';
+  };
+  q.addEventListener('input',run);
+  q.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const f=res.querySelector('button:not([disabled])'); if(f) f.click(); }});
+  document.addEventListener('pointerdown',e=>{ if(!$('search').contains(e.target)) res.style.display='none'; });
+
+  $('cclose').onclick=closeCard;
+  $('cfly').onclick=()=>{ if(selected>=0) flyToPin(selected,true); };
+  $('reset').onclick=()=>{ closeCard(); flyHome(); };
+  $('compass').onclick=()=>flyCam(controls.target,null,null,0);
+  $('tilt').onclick=()=>{ const flat=controls.getPolarAngle()<.2; flyCam(controls.target,null,flat?.95:.0001,null); };
+  $('rand').onclick=()=>{ const v=D.map((_,i)=>i).filter(i=>visible(i)); if(v.length) select(v[Math.floor(Math.random()*v.length)],true); };
+}
+function applyVisibility(){ pins.forEach((p,i)=>p.visible=visible(i)); }
+function ensureVisible(i){
+  const d=D[i];
+  if(d.k==='g'&&!active.grain){ active.grain=true; document.querySelector('.chip[data-k="Grain"]').classList.remove('off'); }
+  if(d.k!=='g'&&!active.regions.has(d.r)){ active.regions.add(d.r); document.querySelector('.chip[data-k="'+d.r+'"]').classList.remove('off'); }
+  applyVisibility();
+}
+
+// ---------- camera tweening ----------
+let tween=null;
+function sph(){ const o=camera.position.clone().sub(controls.target); const r=o.length(); return {r, pol:Math.acos(clamp(o.y/r,-1,1)), az:Math.atan2(o.x,o.z)}; }
+function flyCam(target,radius,polar,azimuth,ms){
+  const s=sph(); const from={t:controls.target.clone(),r:s.r,pol:s.pol,az:s.az};
+  const to={t:target.clone(),r:radius==null?s.r:radius,pol:polar==null?s.pol:polar,az:azimuth==null?s.az:azimuth};
+  let da=to.az-from.az; while(da>Math.PI) da-=2*Math.PI; while(da<-Math.PI) da+=2*Math.PI; to.az=from.az+da;
+  to.pol=clamp(to.pol,.0001,controls.maxPolarAngle);
+  tween={from,to,t0:performance.now(),ms:reduce?0:(ms||1100)};
+}
+function stepTween(now){
+  if(!tween) return;
+  let k=tween.ms?Math.min(1,(now-tween.t0)/tween.ms):1;
+  const e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
+  const f=tween.from,t=tween.to;
+  const r=Math.exp(Math.log(f.r)+(Math.log(t.r)-Math.log(f.r))*e);
+  const pol=f.pol+(t.pol-f.pol)*e, az=f.az+(t.az-f.az)*e;
+  controls.target.lerpVectors(f.t,t.t,e);
+  camera.position.set(controls.target.x+r*Math.sin(pol)*Math.sin(az),controls.target.y+r*Math.cos(pol),controls.target.z+r*Math.sin(pol)*Math.cos(az));
+  if(k>=1) tween=null;
+}
+controls.addEventListener('start',()=>{ tween=null; hideHint(); });
+function homeDist(){ const asp=innerWidth/innerHeight; return Math.max(720,270/(Math.tan(THREE.MathUtils.degToRad(22.5))*asp)); }
+function flyHome(){ flyCam(new THREE.Vector3(-30,0,-30),homeDist(),.9,0,1400); }
+function flyToPin(i,close){
+  const d=D[i]; const dist=close?12:(d.r==='Speyside'||d.r==='Campbeltown'||d.r==='Islay'?26:55);
+  flyCam(new THREE.Vector3(d.x,DEPTH,d.z),dist,.9,null,1200);
+}
+
+// ---------- selection / card ----------
+function select(i,fly){
+  selected=i; const d=D[i]; const col=REG[d.k==='g'?'Grain':d.r];
+  $('cdot').style.background=col; $('creg').textContent=(d.k==='g'?'Grain distillery · ':'')+d.r+(d.r==='Islands'?' & Orkney/Shetland':'');
+  $('cname').textContent=d.n; $('cloc').textContent=d.l;
+  if(d.y){ $('cyearw').style.display=''; $('cyear').textContent=d.y; } else $('cyearw').style.display='none';
+  $('chist').textContent=d.h; $('cnote').style.display=d.a?'block':'none';
+  $('card').classList.add('open'); $('chooser').style.display='none';
+  $('card').querySelector('.cardin').scrollTop=0;
+  try{ history.replaceState(null,'','#'+slug(d.n)); }catch(e){}
+  if(fly) flyToPin(i,false);
+  dirty=true; hideHint();
+}
+function closeCard(){
+  selected=-1; $('card').classList.remove('open'); dirty=true;
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+}
+function hideHint(){ const h=$('hint'); if(h) { h.style.opacity=0; } }
+
+// ---------- picking ----------
+const v3=new THREE.Vector3();
+function screenOf(i){
+  const d=D[i]; const s=pinScale(); v3.set(d.x,DEPTH+1.5*s,d.z).project(camera);
+  return {x:(v3.x*.5+.5)*innerWidth,y:(-v3.y*.5+.5)*innerHeight,z:v3.z};
+}
+function nearest(px,py,rad){
+  const out=[];
+  for(let i=0;i<D.length;i++){
+    if(!visible(i)) continue; const s=screenOf(i); if(s.z>1) continue;
+    const dd=Math.hypot(s.x-px,s.y-py); if(dd<=rad) out.push({i,dd,z:s.z});
+  }
+  return out.sort((a,b)=>a.dd-b.dd);
+}
+let down=null;
+canvas.addEventListener('pointerdown',e=>{ down={x:e.clientX,y:e.clientY,t:performance.now()}; $('chooser').style.display='none'; });
+canvas.addEventListener('pointerup',e=>{
+  if(!down) return; const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y), dt=performance.now()-down.t; down=null;
+  if(moved>7||dt>700) return;
+  const touch=e.pointerType!=='mouse'; const rad=touch?26:16;
+  const hits=nearest(e.clientX,e.clientY,rad);
+  if(!hits.length){ return; }
+  if(hits.length===1||(hits.length<3&&(hits[1].dd-hits[0].dd>7||hits[0].dd<5))){ select(hits[0].i,false); flyBy(hits[0].i); }
+  else showChooser(hits.slice(0,6).map(h=>h.i));
+});
+function flyBy(i){ // gentle recentre without changing zoom much
+  const d=D[i]; const s=sph(); flyCam(new THREE.Vector3(d.x,DEPTH,d.z),Math.min(s.r,Math.max(40,s.r*.75)),null,null,800);
+}
+function showChooser(ids){
+  const L=$('chlist'); L.innerHTML='';
+  ids.forEach(i=>{ const b=document.createElement('button'); b.innerHTML='<span class="dot" style="background:'+REG[D[i].k==='g'?'Grain':D[i].r]+'"></span>'; b.appendChild(document.createTextNode(D[i].n)); b.onclick=()=>{ select(i,false); flyBy(i); }; L.appendChild(b); });
+  $('chooser').style.display='block';
+}
+const tip=$('tip');
+canvas.addEventListener('pointermove',e=>{
+  if(e.pointerType!=='mouse'||e.buttons){ tip.style.display='none'; return; }
+  const h=nearest(e.clientX,e.clientY,13);
+  if(h.length){ tip.textContent=D[h[0].i].n; tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY+12)+'px'; tip.style.display='block'; canvas.style.cursor='pointer'; }
+  else { tip.style.display='none'; canvas.style.cursor=''; }
+});
+canvas.addEventListener('pointerleave',()=>{ tip.style.display='none'; });
+
+// ---------- render loop ----------
+let dirty=true; const lastCam=new THREE.Matrix4();
+function pinScale(){ return clamp(camera.position.distanceTo(controls.target)*.011+.08,.1,16); }
+function updatePins(now){
+  const s=pinScale();
+  for(let i=0;i<pins.length;i++){
+    const p=pins[i]; const sel=i===selected; const k=sel?s*1.45:s;
+    p.scale.setScalar(k);
+    if(sel){ p.userData.ring.visible=true; const pulse=1+.25*Math.sin(now/260); p.userData.ring.scale.setScalar(pulse); } else p.userData.ring.visible=false;
+  }
+}
+function updateLabels(){
+  const W=innerWidth,H=innerHeight,s=pinScale(), placed=[];
+  const show=new Array(D.length).fill(false);
+  const sequence=selected>=0?[selected].concat(order):order;
+  for(let n=0;n<sequence.length;n++){
+    const i=sequence[n]; if(show[i]&&n>0) continue;
+    const el=labels[i];
+    if(!visible(i)){ continue; }
+    const sc=screenOf(i);
+    if(sc.z>1||sc.x<-40||sc.x>W+40||sc.y<-20||sc.y>H+20){ continue; }
+    const w=D[i]._w+(i===selected?8:0), x=sc.x+8*Math.min(s/3,1.8)+6, y=sc.y-8;
+    const box=[x,y,x+w,y+16];
+    let ok=true;
+    if(i!==selected) for(const b of placed){ if(box[0]<b[2]&&box[2]>b[0]&&box[1]<b[3]&&box[3]>b[1]){ ok=false; break; } }
+    if(!ok) continue;
+    placed.push(box); show[i]=true;
+    el.style.display='block'; el.style.transform='translate('+x.toFixed(1)+'px,'+y.toFixed(1)+'px)';
+    el.className='lbl'+(i===selected?' sel':'');
+  }
+  for(let i=0;i<labels.length;i++) if(!show[i]) labels[i].style.display='none';
+}
+function frame(now){
+  requestAnimationFrame(frame);
+  stepTween(now);
+  controls.update();
+  updatePins(now);
+  camera.updateMatrixWorld();
+  const m=camera.matrixWorldInverse;
+  let changed=dirty||selected>=0; // selected pin pulses
+  if(!changed){ const e=m.elements, l=lastCam.elements; for(let i=0;i<16;i++){ if(Math.abs(e[i]-l[i])>1e-6){ changed=true; break; } } }
+  if(changed){ lastCam.copy(m); updateLabels(); dirty=false;
+    $('needle').style.transform='rotate('+(-controls.getAzimuthalAngle()*180/Math.PI)+'deg)';
+    $('tilt').textContent=controls.getPolarAngle()<.2?'3D':'2D'; }
+  renderer.render(scene,camera);
+}
+function start(){
+  applyVisibility();
+  const asp=innerWidth/innerHeight; camera.aspect=asp; camera.updateProjectionMatrix();
+  const home=homeDist();
+  controls.target.set(-30,0,-30);
+  camera.position.set(-30,home*1.35*Math.cos(.9),-30+home*1.35*Math.sin(.9));
+  controls.update();
+  $('loading').style.opacity=0; setTimeout(()=>$('loading').style.display='none',500);
+  // deep link?
+  const h=location.hash.slice(1); const idx=h?D.findIndex(d=>slug(d.n)===h):-1;
+  if(idx>=0){ select(idx,true); } else { flyHome(); }
+  setTimeout(hideHint,9000);
+  requestAnimationFrame(frame);
+}
+addEventListener('resize',()=>{
+  renderer.setSize(innerWidth,innerHeight); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); dirty=true;
+});
+addEventListener('hashchange',()=>{ const h=location.hash.slice(1); const i=D.findIndex(d=>slug(d.n)===h); if(i>=0&&i!==selected){ ensureVisible(i); select(i,true); } });
+addEventListener('keydown',e=>{ if(e.key==='Escape') closeCard(); });
+})();
+</script>
+</body>
+</html>
