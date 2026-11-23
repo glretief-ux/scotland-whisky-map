@@ -19,8 +19,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-famil
 #stage{position:fixed;inset:0}
 canvas{display:block;touch-action:none;outline:none}
 #labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
-.lbl{position:absolute;left:0;top:0;white-space:nowrap;font-size:11px;font-weight:600;letter-spacing:.01em;color:#fff;text-shadow:0 0 3px #000,0 0 6px #000,0 1px 2px #000;will-change:transform}
-.lbl.sel{color:var(--amber);font-size:13px}
+.lbl{position:absolute;left:0;top:0;white-space:nowrap;font-size:var(--lbl,16px);line-height:20px;font-weight:600;letter-spacing:.01em;color:#fff;text-shadow:0 0 3px #000,0 0 6px #000,0 1px 3px #000;will-change:transform}
+.lbl.sel{color:var(--amber);font-size:calc(var(--lbl,16px) + 3px)}
 #ui{position:fixed;left:0;top:0;right:0;padding:calc(var(--sat) + 10px) calc(var(--sar) + 12px) 0 calc(var(--sal) + 12px);pointer-events:none;display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
 #head{pointer-events:auto;max-width:440px;width:100%;min-width:0}
 h1{font-family:'Playfair Display',Georgia,serif;font-size:21px;line-height:1.15;margin:0 0 2px;font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.6)}
@@ -131,6 +131,9 @@ const DEPTH=6;
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $=id=>document.getElementById(id);
 const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const LS=()=>(innerWidth<700?15:17)/16;
+function setLbl(){ document.documentElement.style.setProperty('--lbl',(innerWidth<700?15:17)+'px'); }
+setLbl();
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 let renderer;
@@ -224,10 +227,10 @@ function buildPins(){
     g.position.set(d.x,DEPTH,d.z); scene.add(g); pins.push(g);
   });
   // labels
-  const lc=$('labels'), cx=document.createElement('canvas').getContext('2d'); cx.font='600 11px Inter, sans-serif';
+  const lc=$('labels'), cx=document.createElement('canvas').getContext('2d'); cx.font='600 16px Inter, sans-serif';
   D.forEach((d,i)=>{
     const el=document.createElement('div'); el.className='lbl'; el.textContent=d.n; el.style.display='none'; lc.appendChild(el);
-    d._w=cx.measureText(d.n).width+8; labels.push(el);
+    d._w0=cx.measureText(d.n).width; labels.push(el);
   });
   order=D.map((_,i)=>i).sort((a,b)=>{
     const pa=ICONIC.indexOf(D[a].n), pb=ICONIC.indexOf(D[b].n);
@@ -402,8 +405,9 @@ function updateLabels(){
     if(!visible(i)){ continue; }
     const sc=screenOf(i);
     if(sc.z>1||sc.x<-40||sc.x>W+40||sc.y<-20||sc.y>H+20){ continue; }
-    const w=D[i]._w+(i===selected?8:0), x=sc.x+8*Math.min(s/3,1.8)+6, y=sc.y-8;
-    const box=[x,y,x+w,y+16];
+    if(sc.x<(W<700?W:470)&&sc.y<(W<700?160:190)&&i!==selected){ continue; }
+    const w=(D[i]._w0*LS()+10)*(i===selected?1.2:1), x=sc.x+8*Math.min(s/3,1.8)+6, y=sc.y-10;
+    const box=[x,y,x+w,y+22];
     let ok=true;
     if(i!==selected) for(const b of placed){ if(box[0]<b[2]&&box[2]>b[0]&&box[1]<b[3]&&box[3]>b[1]){ ok=false; break; } }
     if(!ok) continue;
@@ -441,7 +445,7 @@ function start(){
   setTimeout(hideHint,9000);
   requestAnimationFrame(frame);
 }
-addEventListener('resize',()=>{
+addEventListener('resize',()=>{ setLbl(); dirty=true;
   renderer.setSize(innerWidth,innerHeight); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); dirty=true;
 });
 addEventListener('hashchange',()=>{ const h=location.hash.slice(1); const i=D.findIndex(d=>slug(d.n)===h); if(i>=0&&i!==selected){ ensureVisible(i); select(i,true); } });
